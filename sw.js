@@ -29,15 +29,16 @@ self.addEventListener('fetch', (e) => {
 
 /* ---------- 網頁：從手機上的副本交出 ---------- */
 
-let copy = null; // { at, files }
+let copy = null; // { at, t, files }
 async function files() {
   const r = await (await caches.open(VAULT)).match(new URL('vault.json', self.registration.scope).href);
   if (!r) return null;
-  // index.html 存副本時寫上 x-at；同一份就不必再解一次（約 10 MB 的 JSON）
+  // index.html 存副本時寫上 x-at；同一份就不必再解一次（約 10 MB 的 JSON）。
+  // 舊版存的副本沒有 x-at：解過的留 30 秒，一頁連同它載入的檔案只解一次
   const at = r.headers.get('x-at') || '';
-  if (copy && at && copy.at === at) return copy.files;
+  if (copy && (at ? copy.at === at : !copy.at && Date.now() - copy.t < 30000)) return copy.files;
   const b = await r.json();
-  copy = { at: at || b.at || '', files: b.files || {} };
+  copy = { at, t: Date.now(), files: b.files || {} };
   return copy.files;
 }
 
